@@ -1,0 +1,335 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- สร้าง Window หลัก (เปลี่ยนชื่อไฟล์เซฟคีย์ใหม่ เพื่อให้บังคับใส่คีย์ทุกครั้ง)
+local Window = Rayfield:CreateWindow({
+   Name = "🏋️ Muscle Legends - สคริปพี่กล้อง",
+   LoadingTitle = "รอก่อน",
+   LoadingSubtitle = "by พี่ชายพี่กล้องตัวจิงง",
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = "PeeKlongHub_ML",
+      FileName = "NewKeySystem_2026"
+   },
+   KeySystem = true,
+   KeySettings = {
+      Title = "🔑 ยืนยันตัวตน",
+      Subtitle = "กรุณาใส่คีย์เพื่อเข้าใช้งาน",
+      Note = "ใส่คีย์ให้ถูกน้าา",
+      FileName = "PeeKlongKey_Unique",
+      SaveKey = false, -- ป้องกันการจำคีย์
+      GrabKeyFromSite = false,
+      Key = {"kong"}
+   }
+})
+
+-- =============================================
+-- CREATING TABS
+-- =============================================
+local MainFarmTab = Window:CreateTab("🏋️ ฟาร์ม & รีอัตโนมัติ", 4483362458)
+local RockTab = Window:CreateTab("🪨 ต่อยหินระยะไกล", 4483362458)
+local TradeTab = Window:CreateTab("🎁 เทรด & แจกตัว", 4483362458)
+local TeleportTab = Window:CreateTab("🚀 ระบบวาร์ป", 4483362458)
+local UtilityTab = Window:CreateTab("⚙️ ช่วยเล่น & Anti-AFK", 4483362458)
+
+-- Global Variables
+local autoLift = false
+local autoRebirth = false
+local selectedRock = "Tiny Rock"
+local autoRockPunch = false
+local antiAFK = false
+local lockPosition = false
+local lockedCFrame = nil
+local autoTradeAll = false
+local selectedPetToGive = nil
+local myPetList = {}
+
+-- ฟังก์ชันอัปเดตรายชื่อสัตว์เลี้ยง
+local function updatePetList()
+   myPetList = {}
+   local backpack = game.Players.LocalPlayer:FindFirstChild("Backpack")
+   local char = game.Players.LocalPlayer.Character
+   
+   local function scanFolder(folder)
+      if folder then
+         for _, item in pairs(folder:GetChildren()) do
+            if item:IsA("Tool") or item:IsA("Folder") or item:IsA("Model") then
+               table.insert(myPetList, item.Name)
+            end
+         end
+      end
+   end
+   
+   scanFolder(backpack)
+   scanFolder(char)
+   scanFolder(game.Players.LocalPlayer:FindFirstChild("petsFolder"))
+   
+   if #myPetList == 0 then
+      myPetList = {"ไม่พบสัตว์เลี้ยง"}
+   end
+   return myPetList
+end
+
+updatePetList()
+
+-- ฟังก์ชันวาร์ป
+local function teleportTo(cframe)
+   local char = game.Players.LocalPlayer.Character
+   if char and char:FindFirstChild("HumanoidRootPart") then
+      char.HumanoidRootPart.CFrame = cframe
+   end
+end
+
+-- รายชื่อหินทั้งหมด
+local rockList = {
+   "Tiny Rock",
+   "Chest Rock",
+   "Punch Rock",
+   "Gold Rock",
+   "Legends Rock",
+   "Muscle King Rock"
+}
+
+--- =============================================
+--- MAIN FARM & REBIRTH TAB
+--- =============================================
+MainFarmTab:CreateSection("🏋️ ระบบปั๊มกล้าม & รีบิิร์ธอัตโนมัติ")
+
+MainFarmTab:CreateToggle({
+   Name = "💪 เปิด/ปิด Auto Lift (ถือของปั๊มกล้ามอัตโนมัติ)",
+   CurrentValue = false,
+   Flag = "AutoLiftToggle",
+   Callback = function(Value)
+      autoLift = Value
+      task.spawn(function()
+         while autoLift do
+            local char = game.Players.LocalPlayer.Character
+            if char then
+               local tool = char:FindFirstChildOfClass("Tool") or game.Players.LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+               if tool and tool.Name ~= "Punch" then
+                  if tool.Parent ~= char then
+                     tool.Parent = char
+                  end
+                  tool:Activate()
+               end
+            end
+            task.wait(0.1)
+         end
+      end)
+   end,
+})
+
+MainFarmTab:CreateToggle({
+   Name = "🔄 เปิด/ปิด Auto Rebirth (รีบิิร์ธ/จุติ อัตโนมัติ)",
+   CurrentValue = false,
+   Flag = "AutoRebirthToggle",
+   Callback = function(Value)
+      autoRebirth = Value
+      task.spawn(function()
+         while autoRebirth do
+            local rebirthEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rEvents")
+               and game:GetService("ReplicatedStorage").rEvents:FindFirstChild("rebirthEvent")
+            
+            if rebirthEvent then
+               rebirthEvent:FireServer("rebirthRequest")
+            end
+            task.wait(1)
+         end
+      end)
+   end,
+})
+
+--- =============================================
+--- ROCK FARM TAB
+--- =============================================
+RockTab:CreateSection("🪨 ต่อยหินระยะไกล (Remote Punch)")
+
+RockTab:CreateDropdown({
+   Name = "เลือกหินที่ต้องการต่อย",
+   Options = rockList,
+   CurrentOption = {"Tiny Rock"},
+   MultipleOptions = false,
+   Flag = "RockDropdown",
+   Callback = function(Option)
+      selectedRock = Option[1] or Option
+   end,
+})
+
+RockTab:CreateToggle({
+   Name = "🥊 เปิด/ปิด ต่อยหินระยะไกลอัตโนมัติ",
+   CurrentValue = false,
+   Flag = "AutoRockToggle",
+   Callback = function(Value)
+      autoRockPunch = Value
+      
+      task.spawn(function()
+         while autoRockPunch do
+            local char = game.Players.LocalPlayer.Character
+            if char then
+               local punch = char:FindFirstChild("Punch") or game.Players.LocalPlayer.Backpack:FindFirstChild("Punch")
+               if punch then
+                  if punch.Parent ~= char then
+                     punch.Parent = char
+                  end
+                  punch:Activate()
+               end
+               
+               for _, obj in pairs(workspace:GetDescendants()) do
+                  if obj.Name == selectedRock and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                     local muscleEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rEvents") 
+                        and game:GetService("ReplicatedStorage").rEvents:FindFirstChild("rockEvent")
+                     
+                     if muscleEvent then
+                        muscleEvent:FireServer("punchRock", obj)
+                     end
+                  end
+               end
+            end
+            task.wait(0.1)
+         end
+      end)
+   end,
+})
+
+--- =============================================
+--- TRADE TAB
+--- =============================================
+TradeTab:CreateSection("🎁 เลือกสัตว์เลี้ยงที่จะแจก")
+
+local PetDropdown = TradeTab:CreateDropdown({
+   Name = "เลือกสัตว์เลี้ยงจากกระเป๋า",
+   Options = myPetList,
+   CurrentOption = {myPetList[1]},
+   MultipleOptions = false,
+   Flag = "PetSelectDropdown",
+   Callback = function(Option)
+      selectedPetToGive = Option[1] or Option
+   end,
+})
+
+TradeTab:CreateButton({
+   Name = "🔄 อัปเดตรายชื่อสัตว์เลี้ยงในกระเป๋า",
+   Callback = function()
+      local newList = updatePetList()
+      PetDropdown:Refresh(newList, true)
+   end,
+})
+
+TradeTab:CreateSection("⚡ ออโต้ใส่สัตว์ 6 ตัว + กด ยืนยัน")
+
+TradeTab:CreateButton({
+   Name = "🚀 ออโต้ใส่สัตว์ที่เลือก (6 ตัว) + ยืนยันทันที",
+   Callback = function()
+      if selectedPetToGive and selectedPetToGive ~= "ไม่พบสัตว์เลี้ยง" then
+         local tradeEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rEvents")
+            and game:GetService("ReplicatedStorage").rEvents:FindFirstChild("tradingEvent")
+         
+         if tradeEvent then
+            for i = 1, 6 do
+               tradeEvent:FireServer("addPetToTrade", selectedPetToGive)
+               task.wait(0.2)
+            end
+            task.wait(0.5)
+            tradeEvent:FireServer("acceptTrade")
+            
+            Rayfield:Notify({
+               Title = "สำเร็จ!",
+               Content = "ส่งสัตว์เลี้ยง 6 ตัวและยืนยันแล้ว",
+               Duration = 3,
+            })
+         end
+      end
+   end,
+})
+
+TradeTab:CreateToggle({
+   Name = "🔄 ส่งคำขอเทรดหาทุกคนในเซิร์ฟเวอร์",
+   CurrentValue = false,
+   Flag = "AutoTradeToggle",
+   Callback = function(Value)
+      autoTradeAll = Value
+      task.spawn(function()
+         while autoTradeAll do
+            for _, player in pairs(game.Players:GetPlayers()) do
+               if player ~= game.Players.LocalPlayer then
+                  local tradeEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rEvents")
+                     and game:GetService("ReplicatedStorage").rEvents:FindFirstChild("tradingEvent")
+                  if tradeEvent then
+                     tradeEvent:FireServer("sendTradeRequest", player)
+                  end
+                  task.wait(0.5)
+               end
+            end
+            task.wait(2)
+         end
+      end)
+   end,
+})
+
+--- =============================================
+--- TELEPORT TAB
+--- =============================================
+TeleportTab:CreateSection("🏝️ วาร์ปไปเกาะและยิมต่างๆ")
+
+TeleportTab:CreateButton({Name = "🏝️ Main Island (เกาะเริ่มต้น)", Callback = function() teleportTo(CFrame.new(0, 10, 0)) end})
+TeleportTab:CreateButton({Name = "🌴 Jungle Gym (ยิมป่า)", Callback = function() teleportTo(CFrame.new(-1250, 10, 450)) end})
+TeleportTab:CreateButton({Name = "🔍 Tiny Gym / Island (เกาะจิ๋ว)", Callback = function() teleportTo(CFrame.new(-38, 10, 1860)) end})
+TeleportTab:CreateButton({Name = "👑 Muscle King Gym (ยิมมัสเซิลคิง)", Callback = function() teleportTo(CFrame.new(-8800, 15, -5700)) end})
+TeleportTab:CreateButton({Name = "🤫 Secret Location / Gym (เกาะความลับ)", Callback = function() teleportTo(CFrame.new(2000, 10, -3800)) end})
+TeleportTab:CreateButton({Name = "⚡ Frost Gym (เกาะน้ำแข็ง)", Callback = function() teleportTo(CFrame.new(-2600, 10, -500)) end})
+TeleportTab:CreateButton({Name = "🔥 Mythical Gym (เกาะลาวา)", Callback = function() teleportTo(CFrame.new(2450, 10, 1100)) end})
+TeleportTab:CreateButton({Name = "🌌 Eternal Gym (เกาะอวกาศ)", Callback = function() teleportTo(CFrame.new(-6800, 10, -1300)) end})
+TeleportTab:CreateButton({Name = "🏖️ Legend Beach (หาดเลเจนด์)", Callback = function() teleportTo(CFrame.new(0, 10, -3800)) end})
+
+--- =============================================
+--- UTILITY TAB
+--- =============================================
+UtilityTab:CreateSection("📍 ระบบล็อกตำแหน่ง & กันหลุด")
+
+UtilityTab:CreateToggle({
+   Name = "🔒 ล็อกตำแหน่งตัวละครอยู่กับที่",
+   CurrentValue = false,
+   Flag = "LockPosToggle",
+   Callback = function(Value)
+      lockPosition = Value
+      local char = game.Players.LocalPlayer.Character
+      
+      if lockPosition and char and char:FindFirstChild("HumanoidRootPart") then
+         lockedCFrame = char.HumanoidRootPart.CFrame
+         task.spawn(function()
+            while lockPosition do
+               local currentChar = game.Players.LocalPlayer.Character
+               if currentChar and currentChar:FindFirstChild("HumanoidRootPart") and lockedCFrame then
+                  currentChar.HumanoidRootPart.CFrame = lockedCFrame
+                  currentChar.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+               end
+               task.wait(0.05)
+            end
+         end)
+      end
+   end,
+})
+
+UtilityTab:CreateToggle({
+   Name = "🛡️ เปิด Anti-AFK (กันหลุด)",
+   CurrentValue = true,
+   Flag = "AntiAFKToggle",
+   Callback = function(Value)
+      antiAFK = Value
+      if antiAFK then
+         local VirtualUser = game:GetService("VirtualUser")
+         game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            if antiAFK then
+               VirtualUser:CaptureController()
+               VirtualUser:ClickButton2(Vector2.new(0, 0))
+            end
+         end)
+      end
+   end,
+})
+
+Rayfield:Notify({
+   Title = "สคริปพี่กล้อง อัปเดตแล้ว!",
+   Content = "ตั้งค่าบังคับใส่คีย์ใหม่ทุกรอบเรียบร้อยครับ!",
+   Duration = 5,
+})
