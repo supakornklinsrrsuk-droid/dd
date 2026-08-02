@@ -1,0 +1,289 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "🚨 Evade - สคริปต์พี่กล้อง",
+   LoadingTitle = "กำลังโหลดระบบคีย์...",
+   LoadingSubtitle = "By พี่กล้องตัวจิงง",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "EvadeKeyHub",
+      FileName = "EvadeKeyConfig"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = true, -- เปิดระบบคีย์กลับมาแล้ว
+   KeySettings = {
+      Title = "🔑 กรุณากรอกคีย์เพื่อใช้งาน",
+      Subtitle = "ระบบยืนยันตัวตน Evade Hub",
+      Note = "ใส่คีย์ให้ถูกน้าา",
+      FileName = "EvadeKeySaveNew",
+      SaveKey = false,
+      GrabKeyFromSite = false,
+      Key = {"kong"}
+   },
+   Theme = "DarkRed"
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = workspace
+
+-- ตัวแปรฟังก์ชัน
+local tpRevive = false
+local teleportToFriend = false
+local speedHackEnabled = false
+local speedMultiplier = 1.35
+local jumpHackEnabled = false
+local customJump = 60
+local infJumpEnabled = false
+local espBotsEnabled = false
+local espPlayersEnabled = false
+local botHighlights = {}
+local playerHighlights = {}
+
+-- แท็บต่างๆ
+local MainTab = Window:CreateTab("🏃‍♂️ ระบบหลัก & โกง", 4483362458)
+local EspTab = Window:CreateTab("👀 มองทะลุกำแพง (ESP)", 4483362458)
+local MiscTab = Window:CreateTab("⚙️ ฟังก์ชั่นเสริม", 4483362458)
+
+--- =============================================
+--- MAIN TAB
+--- =============================================
+MainTab:CreateSection("⚡ ฟังก์ชันช่วยเหลือ & เคลื่อนที่")
+
+MainTab:CreateToggle({
+   Name = "⚡ ออโต้ 'วาร์ป' ไปชุบเพื่อน (วาร์ปไปชุบทันที)",
+   CurrentValue = false,
+   Flag = "TpReviveToggle",
+   Callback = function(Value)
+      tpRevive = Value
+      task.spawn(function()
+         while tpRevive do
+            pcall(function()
+               for _, v in pairs(Workspace:GetDescendants()) do
+                  if (v.Name == "Downed" or v.Name == "IsDowned" or v.Name == "Dead") and v.Value == true then
+                     local character = v.Parent
+                     if character and character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(0.5)
+                     end
+                  end
+               end
+            end)
+            task.wait(0.2)
+         end
+      end)
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "🎯 วาร์ปไปหาเพื่อนที่รอดชีวิต",
+   CurrentValue = false,
+   Flag = "TpFriendToggle",
+   Callback = function(Value)
+      teleportToFriend = Value
+      task.spawn(function()
+         while teleportToFriend do
+            pcall(function()
+               for _, p in pairs(Players:GetPlayers()) do
+                  if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                     local hum = p.Character:FindFirstChild("Humanoid")
+                     if hum and hum.Health > 0 then
+                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                           LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame + Vector3.new(3, 0, 3)
+                           break
+                        end
+                     end
+                  end
+               end
+            end)
+            task.wait(2)
+         end
+      end)
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "🏃‍♂️ วิ่งไวพิเศษ (Safe Multiplier)",
+   CurrentValue = false,
+   Flag = "SpeedToggle",
+   Callback = function(Value)
+      speedHackEnabled = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ปรับตัวคูณความเร็ว (แนะนำ 1.2 - 1.5)",
+   Range = {1.0, 2.0},
+   Increment = 0.05,
+   CurrentValue = 1.35,
+   Flag = "SpeedSlider",
+   Callback = function(Value)
+      speedMultiplier = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "🦘 กระโดดสูงพิเศษ",
+   CurrentValue = false,
+   Flag = "JumpToggle",
+   Callback = function(Value)
+      jumpHackEnabled = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ปรับความสูงกระโดด",
+   Range = {50, 120},
+   Increment = 5,
+   CurrentValue = 60,
+   Flag = "JumpSlider",
+   Callback = function(Value)
+      customJump = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "🚀 Infinite Jump (กระโดดกลางอากาศรัวๆ)",
+   CurrentValue = false,
+   Flag = "InfJumpToggle",
+   Callback = function(Value)
+      infJumpEnabled = Value
+   end,
+})
+
+--- =============================================
+--- ESP TAB
+--- =============================================
+EspTab:CreateSection("🎯 ระบบมองทะลุกำแพง")
+
+EspTab:CreateToggle({
+   Name = "🤖 ESP มองเห็น Nextbot (ตัวไล่จับ)",
+   CurrentValue = false,
+   Flag = "EspBotsToggle",
+   Callback = function(Value)
+      espBotsEnabled = Value
+      if not Value then
+         for _, h in pairs(botHighlights) do
+            if h then h:Destroy() end
+         end
+         botHighlights = {}
+      end
+   end,
+})
+
+EspTab:CreateToggle({
+   Name = "👥 ESP มองเห็นผู้เล่นอื่น",
+   CurrentValue = false,
+   Flag = "EspPlayersToggle",
+   Callback = function(Value)
+      espPlayersEnabled = Value
+      if not Value then
+         for _, h in pairs(playerHighlights) do
+            if h then h:Destroy() end
+         end
+         playerHighlights = {}
+      end
+   end,
+})
+
+--- =============================================
+--- MISC TAB
+--- =============================================
+MiscTab:CreateSection("🛠️ เครื่องมือเพิ่มเติม")
+
+MiscTab:CreateButton({
+   Name = "🔄 รีเฟรชเกม (แก้บัคค้างทั้งหมด)",
+   Callback = function()
+      for _, h in pairs(botHighlights) do if h then h:Destroy() end end
+      for _, h in pairs(playerHighlights) do if h then h:Destroy() end end
+      game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+   end,
+})
+
+--- =============================================
+--- INPUT LISTENER (ระบบ Infinite Jump)
+--- =============================================
+UserInputService.JumpRequest:Connect(function()
+   if infJumpEnabled then
+      pcall(function()
+         local char = LocalPlayer.Character
+         if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+         end
+      end)
+   end
+end)
+
+--- =============================================
+--- ENGINE LOOP
+--- =============================================
+RunService.RenderStepped:Connect(function()
+   local char = LocalPlayer.Character
+   if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+      local humanoid = char.Humanoid
+      local rootPart = char.HumanoidRootPart
+
+      if speedHackEnabled then
+         pcall(function()
+            local moveDir = humanoid.MoveDirection
+            if moveDir.Magnitude > 0 then
+               rootPart.CFrame = rootPart.CFrame + (moveDir * (speedMultiplier - 1) * 0.6)
+            end
+         end)
+      end
+
+      if jumpHackEnabled then
+         pcall(function()
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = customJump
+         end)
+      end
+   end
+
+   if espBotsEnabled then
+      pcall(function()
+         for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:FindFirstChild("Humanoid") and obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) then
+               if not botHighlights[obj] then
+                  local hl = Instance.new("Highlight")
+                  hl.Adornee = obj
+                  hl.FillColor = Color3.fromRGB(255, 0, 0)
+                  hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                  hl.FillTransparency = 0.4
+                  hl.Parent = obj
+                  botHighlights[obj] = hl
+               end
+            end
+         end
+      end)
+   end
+
+   if espPlayersEnabled then
+      for _, player in ipairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character then
+            if not playerHighlights[player] then
+               local hl = Instance.new("Highlight")
+               hl.Adornee = player.Character
+               hl.FillColor = Color3.fromRGB(0, 150, 255)
+               hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+               hl.FillTransparency = 0.5
+               hl.Parent = player.Character
+               playerHighlights[player] = hl
+            end
+         end
+      end
+   end
+end)
+
+Rayfield:Notify({
+   Title = "ระบบคีย์กลับมาแล้ว!",
+   Content = "ใช้คีย์ 'kong' กรอกเพื่อเข้าใช้งานได้เลยครับ",
+   Duration = 5,
+})
