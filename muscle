@@ -1,10 +1,10 @@
 -- โหลด Rayfield UI Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- สร้าง Window หลัก (เปลี่ยนชื่อไฟล์เซฟคีย์ใหม่ เพื่อให้บังคับใส่คีย์ทุกครั้ง)
+-- สร้าง Window หลัก (พร้อมกำหนด Theme เป็น DarkBlue)
 local Window = Rayfield:CreateWindow({
    Name = "🏋️ Muscle Legends - สคริปพี่กล้อง",
-   LoadingTitle = "รอก่อน",
+   LoadingTitle = "กำลังโหลดระบบพี่กล้อง...",
    LoadingSubtitle = "by พี่ชายพี่กล้องตัวจิงง",
    ConfigurationSaving = {
       Enabled = false,
@@ -20,7 +20,8 @@ local Window = Rayfield:CreateWindow({
       SaveKey = false, -- ป้องกันการจำคีย์
       GrabKeyFromSite = false,
       Key = {"kong"}
-   }
+   },
+   Theme = "DarkBlue" -- เพิ่มธีมสีน้ำเงินเข้มสุดเท่
 })
 
 -- =============================================
@@ -28,6 +29,7 @@ local Window = Rayfield:CreateWindow({
 -- =============================================
 local MainFarmTab = Window:CreateTab("🏋️ ฟาร์ม & รีอัตโนมัติ", 4483362458)
 local RockTab = Window:CreateTab("🪨 ต่อยหินระยะไกล", 4483362458)
+local KillTab = Window:CreateTab("⚔️ ฆ่าคน (Combat & Kill)", 4483362458)
 local TradeTab = Window:CreateTab("🎁 เทรด & แจกตัว", 4483362458)
 local TeleportTab = Window:CreateTab("🚀 ระบบวาร์ป", 4483362458)
 local UtilityTab = Window:CreateTab("⚙️ ช่วยเล่น & Anti-AFK", 4483362458)
@@ -43,6 +45,13 @@ local lockedCFrame = nil
 local autoTradeAll = false
 local selectedPetToGive = nil
 local myPetList = {}
+
+-- ตัวแปรระบบฆ่าผู้เล่น
+local targetKillName = ""
+local killTargetToggle = false
+local killAllToggle = false
+local remoteKillAuraToggle = false
+local standStillKillToggle = false
 
 -- ฟังก์ชันอัปเดตรายชื่อสัตว์เลี้ยง
 local function updatePetList()
@@ -192,6 +201,184 @@ RockTab:CreateToggle({
 })
 
 --- =============================================
+--- KILL TAB (ระบบฆ่าผู้เล่นรวมทุกโหมด)
+--- =============================================
+KillTab:CreateSection("🛑 1. ระบบยืนอยู่ที่เดิมแล้วตีคนอื่น (Stand Still Kill)")
+
+KillTab:CreateToggle({
+   Name = "🛡️ ยืนอยู่ที่เดิม แล้วพุ่งไปต่อยคนอื่นจนตายแล้วเด้งกลับจุดเดิม",
+   CurrentValue = false,
+   Flag = "StandStillKillToggle",
+   Callback = function(Value)
+      standStillKillToggle = Value
+      task.spawn(function()
+         while standStillKillToggle do
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+               local originalPos = char.HumanoidRootPart.CFrame
+               local punch = char:FindFirstChild("Punch") or game.Players.LocalPlayer.Backpack:FindFirstChild("Punch")
+               if punch then
+                  if punch.Parent ~= char then
+                     punch.Parent = char
+                  end
+                  punch:Activate()
+               end
+
+               for _, p in pairs(game.Players:GetPlayers()) do
+                  if not standStillKillToggle then break end
+                  if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                     if p.Character.Humanoid.Health > 0 then
+                        local targetPart = p.Character.HumanoidRootPart
+                        local startTime = tick()
+                        while tick() - startTime < 0.6 and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 and standStillKillToggle do
+                           if char and char:FindFirstChild("HumanoidRootPart") then
+                              char.HumanoidRootPart.CFrame = targetPart.CFrame * CFrame.new(0, 0, 2)
+                           end
+                           task.wait(0.05)
+                        end
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                           char.HumanoidRootPart.CFrame = originalPos
+                        end
+                     end
+                  end
+               end
+            end
+            task.wait(0.5)
+         end
+      end)
+   end,
+})
+
+KillTab:CreateSection("🎯 2. โหมดเลือกเป้าหมายเฉพาะเจาะจง (Target Kill)")
+
+KillTab:CreateInput({
+   Name = "พิมพ์ชื่อผู้เล่นที่ต้องการฆ่า (พิมพ์แค่บางตัวก็ได้)",
+   PlaceholderText = "เช่น pro, abc...",
+   RemoveTextAfterFocusLost = false,
+   Flag = "KillTargetInput",
+   Callback = function(Text)
+      targetKillName = Text:lower()
+   end,
+})
+
+KillTab:CreateToggle({
+   Name = "🎯 วาร์ปไปหา + ต่อยเป้าหมายที่เลือกจนตายอัตโนมัติ",
+   CurrentValue = false,
+   Flag = "KillTargetToggle",
+   Callback = function(Value)
+      killTargetToggle = Value
+      task.spawn(function()
+         while killTargetToggle do
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+               local punch = char:FindFirstChild("Punch") or game.Players.LocalPlayer.Backpack:FindFirstChild("Punch")
+               if punch then
+                  if punch.Parent ~= char then
+                     punch.Parent = char
+                  end
+                  punch:Activate()
+               end
+
+               local targetPlayer = nil
+               for _, p in pairs(game.Players:GetPlayers()) do
+                  if p ~= game.Players.LocalPlayer and p.Name:lower():sub(1, #targetKillName) == targetKillName then
+                     if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                        targetPlayer = p.Character
+                        break
+                     end
+                  end
+               end
+
+               if targetPlayer then
+                  char.HumanoidRootPart.CFrame = targetPlayer.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+               end
+            end
+            task.wait(0.15)
+         end
+      end)
+   end,
+})
+
+KillTab:CreateSection("💥 3. โหมดฆ่ายกเซิร์ฟ (Kill All)")
+
+KillTab:CreateToggle({
+   Name = "💥 วาร์ปไปสับ/ต่อยทุกคนในเซิร์ฟเวอร์เรียงตัวจนตาย",
+   CurrentValue = false,
+   Flag = "KillAllToggle",
+   Callback = function(Value)
+      killAllToggle = Value
+      task.spawn(function()
+         while killAllToggle do
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+               local punch = char:FindFirstChild("Punch") or game.Players.LocalPlayer.Backpack:FindFirstChild("Punch")
+               if punch then
+                  if punch.Parent ~= char then
+                     punch.Parent = char
+                  end
+                  punch:Activate()
+               end
+
+               for _, p in pairs(game.Players:GetPlayers()) do
+                  if not killAllToggle then break end
+                  if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                     if p.Character.Humanoid.Health > 0 then
+                        local startTime = tick()
+                        while tick() - startTime < 1 and killAllToggle do
+                           if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                              char.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+                           end
+                           task.wait(0.1)
+                        end
+                     end
+                  end
+               end
+            end
+            task.wait(0.5)
+         end
+      end)
+   end,
+})
+
+KillTab:CreateSection("📡 4. โหมดฆ่าระยะไกล (Kill Aura)")
+
+KillTab:CreateToggle({
+   Name = "📡 เปิด/ปิด ฆ่าผู้เล่นทุกคนในเซิร์ฟเวอร์แบบระยะไกล",
+   CurrentValue = false,
+   Flag = "RemoteKillAuraToggle",
+   Callback = function(Value)
+      remoteKillAuraToggle = Value
+      task.spawn(function()
+         while remoteKillAuraToggle do
+            local char = game.Players.LocalPlayer.Character
+            if char then
+               local punch = char:FindFirstChild("Punch") or game.Players.LocalPlayer.Backpack:FindFirstChild("Punch")
+               if punch then
+                  if punch.Parent ~= char then
+                     punch.Parent = char
+                  end
+                  punch:Activate()
+               end
+
+               for _, p in pairs(game.Players:GetPlayers()) do
+                  if not remoteKillAuraToggle then break end
+                  if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                     if p.Character.Humanoid.Health > 0 then
+                        pcall(function()
+                           firetouchinterest(char.HumanoidRootPart, p.Character.HumanoidRootPart, 0)
+                           firetouchinterest(char.HumanoidRootPart, p.Character.HumanoidRootPart, 1)
+                        end)
+                     end
+                  end
+               end
+            end
+            task.wait(0.2)
+         end
+      end)
+   end,
+})
+
+--- =============================================
 --- TRADE TAB
 --- =============================================
 TradeTab:CreateSection("🎁 เลือกสัตว์เลี้ยงที่จะแจก")
@@ -330,6 +517,6 @@ UtilityTab:CreateToggle({
 
 Rayfield:Notify({
    Title = "สคริปพี่กล้อง อัปเดตแล้ว!",
-   Content = "ตั้งค่าบังคับใส่คีย์ใหม่ทุกรอบเรียบร้อยครับ!",
+   Content = "ใส่ธีม DarkBlue สีน้ำเงินเข้มสุดเท่ให้เรียบร้อยครับ!",
    Duration = 5,
 })
